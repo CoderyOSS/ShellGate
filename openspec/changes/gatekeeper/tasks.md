@@ -63,7 +63,7 @@
 - [ ] 8.6 Implement reject path: print reason to stderr, skip execution, set exit code to 1
 - [ ] 8.7 Implement local git fast-path: detect git subcommands in {add,commit,status,diff,log,branch,stash,checkout,merge,rebase,reset,tag} and skip socket round-trip
 - [ ] 8.8 Implement proxy mode for gh: when command is `gh`, send full command to gate-server, stream output back
-- [ ] 8.9 Create Dockerfile.zsh-patch: download zsh release, apply patch, build, produce binary artifact
+- [ ] 8.9 Create multi-stage Docker build for patched zsh: stage1 compiles from source (download zsh release, apply patch, build), stage2 copies `/usr/local/bin/zsh` binary. Cache stage1 image in GHCR. Fallback: download precompiled zsh artifact from GitHub releases.
 - [ ] 8.10 Test patched zsh: verify allow, allow+env, pending, reject, local git, gh proxy paths
 
 ## 9. Web UI
@@ -81,7 +81,7 @@
 
 - [ ] 10.1 Implement MCP protocol over stdio: initialize, tools/list, tools/call
 - [ ] 10.2 Implement `request_pre_approval` tool: accept actions, repos, ttl, reason; create pre-approval request (itself needs human approval)
-- [ ] 10.3 Implement `check_approval_status` tool: accept approval_id, return current status
+- [ ] 10.3 Implement `get_approval_status` tool: accept approval_id, return current status
 - [ ] 10.4 Implement `list_grants` tool: return active grants
 - [ ] 10.5 Implement `explain_blocked` tool: return permissions currently OFF, partial grant coverage
 - [ ] 10.6 Add `--mcp` flag / `mcp` subcommand to gate-server binary

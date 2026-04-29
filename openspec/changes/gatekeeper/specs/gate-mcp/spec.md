@@ -42,7 +42,7 @@ Agents SHALL be able to ask which commands are currently blocked and why.
 - **AND** for each, shows whether a grant exists that partially covers it
 
 ### Requirement: MCP server runs as part of gate-server
-The MCP server SHALL be integrated into the gate-server binary as a subcommand or built-in capability. It SHALL communicate over stdio (standard MCP protocol).
+The MCP server SHALL be integrated into the gate-server binary as a subcommand or built-in capability. It SHALL communicate over stdio (standard MCP protocol). The MCP subprocess SHALL open the SQLite database in read-write mode with WAL journaling (shared with main daemon). When the MCP subprocess inserts an approval_request row, it SHALL write the request ID to a FIFO at `/opt/gate/mcp-notify.fifo`. The main daemon SHALL monitor the FIFO via async read (`tokio::fs::read`). Fallback: main daemon polls `approval_requests` table every 1 second for new pending rows with recent `created_at`. The MCP subprocess SHALL NOT daemonize; it processes one stdio session and exits.
 
 #### Scenario: Start MCP server
 - **WHEN** gate-server is started with `--mcp` flag or `gate-server mcp` subcommand

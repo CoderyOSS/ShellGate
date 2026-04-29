@@ -63,10 +63,10 @@ The system SHALL use a single code path for all permission checks. The check SHA
 - **AND** an approval request is created
 
 ### Requirement: Pre-approval grants
-The system SHALL support creating grants that activate permissions for a configurable time period. Each grant SHALL have: action pattern, repo pattern (glob), TTL, optional max uses, reason, and created_by.
+The system SHALL support creating grants that activate permissions for a configurable time period. Each grant SHALL have: action pattern, repo pattern (glob), TTL in seconds (u64, 0 = indefinite), optional max uses (u64, None = unlimited), reason, and created_by.
 
 #### Scenario: Create pre-approval for specific repo
-- **WHEN** user creates a grant: `{action: "pr:create", repo: "rm-rf-etc/Willow", ttl: "2h", reason: "PR review session"}`
+- **WHEN** user creates a grant: `{action: "pr:create", repo: "rm-rf-etc/Willow", ttl_secs: 7200, reason: "PR review session"}`
 - **THEN** the grant is stored in the database with `expires_at` = now + 2h
 - **AND** `pr:create` commands targeting `rm-rf-etc/Willow` are auto-approved until expiry
 
@@ -112,3 +112,13 @@ Default permission states SHALL be configurable via the web UI and REST API. Cha
 - **WHEN** user clicks "Reset to Defaults" in the web UI
 - **THEN** all default permissions are restored to their initial seed values
 - **AND** existing grants are NOT affected
+
+### Requirement: Command pattern matching
+Permission rules SHALL use three matching modes for command-to-rule evaluation:
+1. **exact**: full command string equality (rare, for static commands like `git status`)
+2. **prefix**: command starts with pattern (e.g., `git push origin main` matches `git push` with prefix)
+3. **glob**: glob pattern on full command string (e.g., `git clone https://github.com/*`)
+
+Rule evaluation order SHALL be: exact > prefix > glob. First match wins. No match = prompt for approval.
+
+Glob matching SHALL use the Rust `globset` crate for performance. Rules SHALL be stored in the SQLite `permission_rules` table.

@@ -42,12 +42,19 @@ The patched zsh SHALL NOT have a real `gh` binary installed. When the agent runs
 - **AND** output is streamed back to the agent
 
 ### Requirement: Bash symlink
-The container SHALL symlink `/bin/bash` to `/bin/zsh` (the patched version). All tools that invoke `bash -c "..."` or `/bin/bash` SHALL transparently use the patched zsh.
+The container SHALL symlink `/bin/bash` to `/bin/zsh` (the patched version). Zsh SHALL be started as `zsh --emulate bash` for scripts invoked via `/bin/bash` shebang. All tools that invoke `bash -c "..."` or `/bin/bash` SHALL transparently use the patched zsh.
 
 #### Scenario: OpenCode runs bash command
 - **WHEN** OpenCode execs `/bin/bash -c "gh pr create --title fix"`
 - **THEN** the patched zsh receives the command
 - **AND** the pre-exec hook fires and checks with gate-server
+
+#### Scenario: Bash compatibility limitations
+- **GIVEN** bash-specific features like `$FUNCNAME`, `type -t`, `coproc`, POSIX-style arithmetic `$((x++))` edge cases, and associative array syntax differ in zsh
+- **WHEN** a script uses these features via `/bin/bash` shebang
+- **THEN** the behavior may differ from native bash
+- **AND** known incompatibilities SHALL be documented in `/etc/zsh/bash-compat-notes.txt`
+- **AND** if critical incompatibilities are discovered during testing, fall back to: bash retained as `/bin/bash` with DEBUG trap + extdebug for gating; zsh remains default interactive shell
 
 ### Requirement: zsh patch maintained as .patch file
 The zsh modifications SHALL be maintained as a patch file against official zsh release tarballs. The patch SHALL add a gate hook point in `Src/exec.c` before the fork for external command execution. The patch SHALL be less than 50 lines of C code.
@@ -68,3 +75,23 @@ The patched zsh container SHALL NOT contain any GitHub credentials — no `GH_TO
 - **WHEN** agent runs `curl https://api.github.com/repos/rm-rf-etc/Willow/pulls`
 - **THEN** curl succeeds for public repos (no auth needed)
 - **AND** curl fails with 401/404 for private repos (no auth available)
+
+### Requirement: Gate-server failure fallback
+The patched zsh SHALL implement configurable fail-open vs fail-closed behavior when gate-server is unreachable.
+
+#### Scenario: Gate-server unreachable
+- **WHEN** gate-server socket at `/run/gate.sock` is missing or unresponsive
+- **THEN** patched zsh retries connection with 5s timeout, up to 3 retries
+- **AND** if all retries fail, behavior depends on config:
+  - **fail-closed (default)**: GitHub-related commands (git push, gh, etc.) are rejected with exit code 69; local commands (ls, cat, etc.) are allowed
+  - **fail-open**: all commands proceed without credentials; a warning is logged
+- **AND** the fallback mode is configurable via `/etc/gate/fallback` config option
+
+### Requirement: Container startup dependency on gate-server
+The patched zsh SHALL handle the case where gate-server starts after the sandbox container.
+
+#### Scenario: Sandbox starts before gate-server
+- **WHEN** the sandbox container starts before gate-server is ready
+- **THEN** patched zsh retries connection to `/run/gate.sock` with exponential backoff (base 100ms, 2x multiplier, jitter) for up to 30 seconds
+- **AND** if gate-server remains unreachable after 30s, local commands execute without interception
+- **AND** GitHub commands print a clear error message and exit with code 1

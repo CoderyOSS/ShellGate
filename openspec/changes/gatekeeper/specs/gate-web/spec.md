@@ -10,7 +10,10 @@ The web UI SHALL display pending approval requests with real-time updates. When 
 
 #### Scenario: Real-time update on new request
 - **WHEN** a new approval request is created while the dashboard is open
-- **THEN** the new request appears in the list without page refresh (via WebSocket or SSE)
+- **THEN** the new request appears in the list without page refresh (via SSE at `/api/events`)
+- **AND** SSE events include: `approval.new`, `approval.resolved`, `grant.created`, `grant.expired`
+- **AND** reconnection uses `Last-Event-Id` header to resume from last received event
+- **AND** a 30-second keepalive heartbeat prevents proxy timeout
 
 #### Scenario: Approve from dashboard
 - **WHEN** user clicks "Approve" on a pending request
@@ -41,7 +44,7 @@ The web UI SHALL display the audit log with filtering and search capabilities.
 
 #### Scenario: View audit log
 - **WHEN** user navigates to the audit section
-- **THEN** recent audit entries are displayed showing: timestamp, command, action, repo, granted_by, exit_code
+- **THEN** recent audit entries are displayed showing: timestamp, command, action, repo, granted_by, exit_code, operator_id, operator_type
 
 #### Scenario: Filter audit log
 - **WHEN** user filters by action type (e.g., `git:push`)

@@ -34,7 +34,7 @@ The sandbox container shares a host with other services managed by the Willow in
 - Function overrides in bashrc: `gh() { gate-exec "$@"; }` — bypassable with `command gh`, `/usr/bin/gh`, PATH manipulation. Mitigated by no-creds-in-container, but still whack-a-mole for new commands.
 - LD_PRELOAD hooking execve(): Works with any shell, but bypassable (unset LD_PRELOAD, static binaries). Doesn't give us the clean env-injection story (token injected after fork, before execve, only in child process memory).
 
-**Rationale**: The patched zsh approach is unbypassable at the shell level — every external command goes through the same code path regardless of how it's invoked. The hook fires before fork, so rejected commands never become processes. Env injection happens after fork but before execve, so credentials only exist in the child's memory and evaporate on process exit.
+**Rationale**: The patch hooks zsh's `execcmd()` in `Src/exec.c` — the internal function zsh calls before fork+execve for every external command it directly invokes. This means every command typed at the prompt or run via zsh's own execution path goes through gate-checking. Commands invoked BY child processes (e.g., `make` running `git push` internally) are NOT intercepted — but they have no credentials to use anyway. The security model is credential-absence; the zsh patch adds approval UX for direct commands. The hook fires before fork, so rejected commands never become processes. Env injection happens after fork but before execve, so credentials only exist in the child's memory and evaporate on process exit.
 
 ### 2. zsh patch now, upstream PR + module later
 
@@ -57,7 +57,11 @@ The sandbox container shares a host with other services managed by the Willow in
 
 **Exception for `gh`**: `gh` CLI is not installed in the container. When the agent runs `gh` commands, the patched zsh sends the full command to gate-server which executes `gh.real` on the host and streams stdout/stderr back. This is because `gh` requires authentication configuration that we don't want in the container at all.
 
-**Rationale**: Running commands locally means git handles its own IO (interactive merge conflicts, progress bars, large output streams) without proxying complexity. Token injection is simpler than IO proxying. For `gh`, proxying is acceptable because gh output is typically small and non-interactive.
+**Limitation**: Proxy mode has no TTY. gh commands requiring interactive input (`gh pr create`, `gh issue create`, etc.) will fail or enter non-interactive mode. Agents should pass `--fill` / `--body` / `--title` flags for non-interactive use. Interactive gh commands are not supported in v1.
+
+**Signal forwarding**: SIGINT (Ctrl+C) from the container is forwarded through the socket to the gh process on the host. Exit codes from gh are propagated back to the patched zsh.
+
+**Rationale**: Running commands locally means git handles its own IO (interactive merge conflicts, progress bars, large output streams) without proxying complexity. Token injection is simpler than IO proxying. For `gh`, proxying is acceptable because gh output is typically small and non-interactive (interactive gh commands are not supported in v1).
 
 ### 5. SQLite on host for all state
 
@@ -70,7 +74,8 @@ The sandbox container shares a host with other services managed by the Willow in
 | Mode | When | Flow |
 |------|------|------|
 | **proxy** | `gh` commands (no real gh in container) | gate-server executes command on host, streams output back to patched zsh |
-| **token** | `git push/fetch/pull/clone`, `curl` to github.com | gate-server returns short-lived token, patched zsh injects into child process env, command runs in container |
+| **token** | `git push/fetch/pull/clone` | gate-server returns short-lived token, patched zsh injects into child process env, command runs in container |
+| **proxy** | `curl` to github.com | gate-server rewrites curl command adding `-H "Authorization: Bearer <token>"` and executes on host (deferred to v2; v1 use `gh api` instead) |
 
 ### 7. Tech stack
 
@@ -112,6 +117,6 @@ The sandbox container shares a host with other services managed by the Willow in
 ## Open Questions
 
 - Should the zsh patch support caching allowed commands locally (avoid socket round-trip for every command) or always round-trip? Unix socket is sub-ms latency, but scripts with many commands could accumulate delay.
-- What is the optimal approval request TTL (how long before a pending request expires if no one responds)?
+- [RESOLVED] Pending approval request TTL: 5 minutes (configurable in gate-server TOML). After expiry, the request transitions to 'expired' state and the patched zsh receives a 'reject' response with reason 'approval request expired'. Agent sees exit code 77 (custom code for 'gated - expired').
 - Should the gate-server expose metrics (Prometheus) for monitoring approval latency, rejection rates, etc.?
 - Should the zsh upstream PR include the ability for the hook to modify argv (not just env)? This would enable command rewriting (e.g., redirecting `git push` to a different remote).

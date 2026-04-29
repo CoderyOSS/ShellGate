@@ -21,7 +21,7 @@ AI agents with unrestricted GitHub access can cause unintended damage — pushin
 - `gate-permissions`: Unified permission model — default states, pre-approval grants with TTL, approval request workflow
 - `gate-telegram`: Telegram bot integration — push notifications, inline approve/reject, pre-approval management
 - `gate-web`: Astro + React web dashboard — pending approvals, pre-approval management, audit log viewer, permission config editor
-- `gate-mcp`: MCP server tools — request_pre_approval, check_approval_status, list_pre_approvals, explain_blocked
+- `gate-mcp`: MCP server tools — request_pre_approval, get_approval_status, list_grants, explain_blocked
 
 ### Modified Capabilities
 
