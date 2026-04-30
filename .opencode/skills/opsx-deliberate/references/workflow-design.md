@@ -92,9 +92,8 @@ consensus cycle on its second pass.
 
 ## Commit Behavior
 
-Single commit after user accepts. Unlike opsx-refine (which commits per tier),
-opsx-deliberate commits once because changes are applied as a batch after user
-acceptance.
+Single commit after user accepts. opsx-deliberate commits once because changes
+are applied as a batch after user acceptance.
 
 Commit message: `opsx-deliberate: apply N proposals for <change-name>`
 
