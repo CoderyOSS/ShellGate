@@ -38,16 +38,18 @@ in build order with renumbered IDs.
    Steps 1-2 above handle STATE 0 (setup). The skill continues from STATE 1:
 
    - STATE 0: Setup — detect change, verify tasks.md exists
-   - STATE 1: Extract — read all artifacts, parse tasks, classify each into a
-     dependency layer (0–7), identify dependencies and branches, show classification
-     table to user
-   - STATE 2: Build tree — construct ASCII dependency tree with task IDs at each
-     node, save to `dependency-tree.md`
-   - STATE 3: Resolve — if ordering ambiguity exists (tasks that could go in
+   - STATE 1: Extract & build — read all artifacts, parse tasks, classify each into
+     a dependency layer (0–7), build an ASCII dependency tree with task IDs and
+     descriptions at every node. Show tree to user, ask to confirm or correct.
+     Loop until confirmed, then save `dependency-tree.md`
+   - STATE 2: Resolve — if ordering ambiguity exists (tasks that could go in
      multiple valid orders), present 2–3 options with rationale. User picks.
-     If no ambiguity, skip to STATE 4
-   - STATE 4: Output — rewrite `tasks.md` in-place with tasks ordered by layer,
-     renumbered IDs, updated cross-references. Show summary
+     If no ambiguity, skip to STATE 3
+   - STATE 3: Output — write reordered tasks to `tasks.md.tmp` with renumbered IDs
+     and updated cross-references. Original `tasks.md` untouched.
+   - STATE 4: Verify — compare original `tasks.md` against `tasks.md.tmp`. Verify
+     same task count, every task present, content unchanged (only IDs/cross-refs
+     differ), cross-references correct. User confirms to replace or aborts.
 
    **Dependency layers** (foundation → abstract):
 
@@ -66,8 +68,8 @@ in build order with renumbered IDs.
    - Single agent workflow — no subagent dispatch
    - Preserve ALL original task content — only change IDs and cross-references
    - Ambiguity resolution always defers to the user — never pick silently
-   - `tasks.md` is overwritten in-place (git is the backup)
-   - No backup file created
+   - Original `tasks.md` is never overwritten until STATE 4 verification passes and user confirms
+   - New tasks written to `tasks.md.tmp` first, verified, then replaced on user confirmation
 
 **Output files**
 - `openspec/changes/<name>/tasks.md` — rewritten with new ordering
@@ -75,7 +77,8 @@ in build order with renumbered IDs.
 
 **Guardrails**
 
-- Only modifies `tasks.md` and creates `dependency-tree.md` — never source code
+- Only modifies `tasks.md` (via temp file + verification) and creates `dependency-tree.md` — never source code
 - Every original task ID appears exactly once in the rewritten file
+- Original `tasks.md` untouched until STATE 4 verification passes
 - Classification uses rules in `references/layer-classification.md`
 - When uncertain about classification, ask the user rather than guessing
