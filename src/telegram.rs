@@ -7,11 +7,16 @@ use teloxide::types::{InlineKeyboardButton, InlineKeyboardMarkup};
 pub async fn start_bot(config: crate::types::TelegramConfig, state: AppState) -> Result<(), GateError> {
     let bot = teloxide::Bot::new(&config.bot_token);
 
-    teloxide::dispatching::dialogue::enter::<Update, teloxide::dispatching::dialogue::InMemStorage<()>, (), _>(
-        bot,
-        teloxide::dispatching::dialogue::InMemStorage::new(),
-    )
-    .await;
+    let handler = dptree::entry()
+        .branch(Update::filter_callback_query().endpoint(|bot: teloxide::Bot, q: teloxide::types::CallbackQuery| async move {
+            tracing::info!(data = ?q.data, "callback query received");
+            Ok::<_, teloxide::RequestError>(())
+        }));
+
+    let mut dispatcher = teloxide::dispatching::Dispatcher::builder(bot, handler)
+        .build();
+
+    dispatcher.dispatch().await;
 
     Ok(())
 }
@@ -24,7 +29,7 @@ pub async fn send_approval_notification(
     let text = format!(
         "🔴 INTERCEPT\n─────────────────────────\n{} {}\n📂 {}\n─────────────────────────\nNo grant covers this command.",
         request.command,
-        request.args,
+        request.args.join(" "),
         request.repo
     );
 
@@ -231,11 +236,11 @@ pub async fn handle_callback(
     state: &AppState,
 ) -> Result<(), GateError> {
     let data = callback.data.as_deref().unwrap_or("");
-    let chat_id = callback.message.as_ref().map(|m| m.chat.id);
+    let chat_id = callback.message.as_ref().map(|m| m.chat().id);
 
     if data == "ack" {
         if let Some(chat_id) = chat_id {
-            bot.send_message(teloxide::types::ChatId(chat_id), "Acknowledged.")
+            bot.send_message(chat_id, "Acknowledged.")
                 .await
                 .map_err(|e| format!("telegram error: {}", e))?;
         }
@@ -259,7 +264,7 @@ pub async fn handle_callback(
 
     if let Some(chat_id) = chat_id {
         bot.send_message(
-            teloxide::types::ChatId(chat_id),
+            chat_id,
             format!("Processed: {}", data),
         )
         .await

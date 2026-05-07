@@ -201,6 +201,7 @@ pub struct ParsedRule {
 
 pub fn parse_rules(raw: &str) -> Option<Vec<ParsedRule>> {
     let json_start = raw.find('[')?;
-    let json_str = &raw[json_start..];
+    let json_end = raw.rfind(']')?;
+    let json_str = &raw[json_start..=json_end];
     serde_json::from_str(json_str).ok()
 }
