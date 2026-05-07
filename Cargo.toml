@@ -1,7 +1,15 @@
 [package]
 name = "gate-server"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
+
+[lib]
+name = "gate_server"
+path = "src/lib.rs"
+
+[[bin]]
+name = "gate-server"
+path = "src/main.rs"
 
 [dependencies]
 tokio = { version = "1", features = ["full"] }
@@ -22,3 +30,31 @@ jsonwebtoken = "9"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 tokio-stream = "0.1"
 futures = "0.3"
+
+[features]
+default = ["bonsai"]
+bonsai = ["candle-core", "candle-nn", "candle-transformers", "hf-hub", "tokenizers", "notify"]
+
+[dependencies.candle-core]
+version = "0.9"
+optional = true
+
+[dependencies.candle-nn]
+version = "0.9"
+optional = true
+
+[dependencies.candle-transformers]
+version = "0.9"
+optional = true
+
+[dependencies.hf-hub]
+version = "0.4"
+optional = true
+
+[dependencies.tokenizers]
+version = "0.21"
+optional = true
+
+[dependencies.notify]
+version = "7"
+optional = true

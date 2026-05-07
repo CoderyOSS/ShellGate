@@ -2,6 +2,8 @@ use std::collections::HashMap;
 
 pub type GateError = Box<dyn std::error::Error + Send + Sync>;
 
+use crate::pipeline::PipelineConfig;
+
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum Decision {
     Allow,
@@ -109,6 +111,8 @@ pub struct Config {
     pub telegram: TelegramConfig,
     pub mcp: McpConfig,
     pub web: WebConfig,
+    #[serde(default)]
+    pub pipeline: PipelineConfig,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -196,4 +200,29 @@ pub struct CreateGrantRequest {
     pub ttl_secs: u64,
     pub max_uses: Option<u64>,
     pub reason: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct Agenda {
+    pub id: String,
+    pub source: String,
+    pub description: String,
+    pub scope: Option<String>,
+    pub status: String,
+    pub created_at: String,
+    pub expires_at: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct DerivedGrant {
+    pub id: String,
+    pub agenda_id: String,
+    pub command_pattern: String,
+    pub args_pattern: String,
+    pub path_pattern: Option<String>,
+    pub notification: String,
+    pub reason: Option<String>,
+    pub confidence: Option<f64>,
+    pub created_at: String,
+    pub expires_at: String,
 }

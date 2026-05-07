@@ -1,19 +1,27 @@
+mod agenda;
 mod api;
 mod approvals;
 mod audit;
+mod bonsai;
+mod bootstrap;
 mod classifier;
 mod config;
+mod derived_grants;
 mod grants;
 mod handler;
 mod mcp;
 mod permissions;
+mod pipeline;
+mod prompts;
 mod proxy;
 mod protocol;
 mod schema;
 mod server;
+mod stages;
 mod telegram;
 mod tokens;
 mod types;
+mod watcher;
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
