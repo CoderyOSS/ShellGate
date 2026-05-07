@@ -4,7 +4,7 @@ use crate::types::GateError;
 #[cfg(feature = "bonsai")]
 use candle_core::{Device, Tensor};
 #[cfg(feature = "bonsai")]
-use std::sync::Mutex;
+
 
 #[cfg(feature = "bonsai")]
 pub struct BonsaiModel {
@@ -104,10 +104,22 @@ impl BonsaiModel {
 
     #[cfg(feature = "bonsai")]
     fn run_inference(&self, token_ids: &[u32]) -> Result<Vec<u32>, GateError> {
+        use candle_core::quantized::gguf_file;
         use candle_transformers::models::quantized_llama::ModelWeights;
+        use std::io::BufReader;
 
-        let model_weights = ModelWeights::from_gguf_file(&self.model_path, &self.device)
+        let file = std::fs::File::open(&self.model_path)
+            .map_err(|e| format!("failed to open model file: {}", e))?;
+        let mut reader = BufReader::new(file);
+        let ct = gguf_file::Content::read(&mut reader)
+            .map_err(|e| format!("failed to parse GGUF: {}", e))?;
+        let mut model_weights = ModelWeights::from_gguf(ct, &mut reader, &self.device)
             .map_err(|e| format!("failed to load GGUF model: {}", e))?;
+
+        let eos_token_id = self
+            .tokenizer
+            .as_ref()
+            .and_then(|t| t.token_to_id("</s>"));
 
         let mut output_tokens = Vec::new();
         let mut input_tensor = Tensor::new(token_ids, &self.device)?;
@@ -123,8 +135,10 @@ impl BonsaiModel {
 
             output_tokens.push(next_token);
 
-            if next_token == tokenizers::constants::eos_token() {
-                break;
+            if let Some(eos) = eos_token_id {
+                if next_token == eos {
+                    break;
+                }
             }
 
             input_tensor = Tensor::new(&[next_token], &self.device)?;

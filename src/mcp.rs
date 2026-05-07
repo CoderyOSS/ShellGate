@@ -7,12 +7,12 @@ use std::sync::Arc;
 
 pub async fn run_mcp_server(db_path: &str) -> Result<(), GateError> {
     let conn = rusqlite::Connection::open(db_path)?;
-    let stdin = tokio::io::BufReader::new(tokio::io::stdin());
+    let mut stdin = tokio::io::BufReader::new(tokio::io::stdin());
     let stdout = tokio::io::stdout();
 
     loop {
         let mut line = String::new();
-        if tokio::io::BufRead::read_line(&mut stdin, &mut line).await? == 0 {
+        if tokio::io::AsyncBufReadExt::read_line(&mut stdin, &mut line).await? == 0 {
             break;
         }
 

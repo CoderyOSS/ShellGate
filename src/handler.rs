@@ -36,9 +36,6 @@ pub async fn handle_check_request(
         .cloned()
         .unwrap_or_default();
 
-    let catch_stage = CatchListStage::new(&state.config.pipeline.stages.catch_list.patterns)
-        .map_err(|e| format!("catch list pattern error: {}", e))?;
-
     let mut stages: Vec<Box<dyn crate::pipeline::DeliberationStage>> = Vec::new();
     let db_path = state.config.gate.db_path.clone();
 
@@ -48,7 +45,11 @@ pub async fn handle_check_request(
                 state.config.pipeline.stages.allow_list.sampling_rate,
                 db_path.clone(),
             ))),
-            "catch_list" => stages.push(Box::new(catch_stage)),
+            "catch_list" => {
+                let catch = CatchListStage::new(&state.config.pipeline.stages.catch_list.patterns)
+                    .map_err(|e| format!("catch list pattern error: {}", e))?;
+                stages.push(Box::new(catch));
+            }
             "llm" => {
                 if let Some(ref m) = model {
                     stages.push(Box::new(LlmStage::new(m.clone(), db_path.clone())));
