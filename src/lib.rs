@@ -1,9 +1,13 @@
 pub mod agenda;
 pub mod bootstrap;
 pub mod bonsai;
+pub mod config;
 pub mod derived_grants;
+pub mod handler;
 pub mod pipeline;
 pub mod prompts;
+pub mod protocol;
+pub mod schema;
 pub mod stages;
 pub mod types;
 
