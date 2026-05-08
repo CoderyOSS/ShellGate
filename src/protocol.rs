@@ -1,19 +1,26 @@
 use crate::types::{GateError, GateRequest, GateResponse};
 
-/// Parse a JSON length-prefixed frame into a GateRequest.
-///
-/// Spec: gate-server/spec.md > "Unix socket server for command authorization"
-/// Tasks: 4.4
-/// Pure function — deserializes JSON.
 pub fn parse_request(data: &[u8]) -> Result<GateRequest, GateError> {
-    todo!("parse_request: read 4-byte length prefix, decode JSON body into GateRequest")
+    if data.len() < 4 {
+        return Err("frame too short: need 4-byte length prefix".into());
+    }
+    let len = u32::from_be_bytes([data[0], data[1], data[2], data[3]]) as usize;
+    if data.len() < 4 + len {
+        return Err(format!(
+            "frame truncated: header says {} bytes, got {}",
+            len,
+            data.len() - 4
+        )
+        .into());
+    }
+    let json = &data[4..4 + len];
+    Ok(serde_json::from_slice(json)?)
 }
 
-/// Serialize a GateResponse into a JSON length-prefixed frame.
-///
-/// Spec: gate-server/spec.md > "Unix socket server for command authorization"
-/// Tasks: 4.4
-/// Pure function — serializes JSON with length prefix.
 pub fn serialize_response(response: &GateResponse) -> Vec<u8> {
-    todo!("serialize_response: serialize GateResponse to JSON, prepend 4-byte length prefix")
+    let json = serde_json::to_vec(response).expect("GateResponse serialization");
+    let len = json.len() as u32;
+    let mut out = len.to_be_bytes().to_vec();
+    out.extend_from_slice(&json);
+    out
 }
