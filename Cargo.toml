@@ -31,33 +31,5 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "rus
 tokio-stream = "0.1"
 futures = "0.3"
 
-[features]
-default = ["bonsai"]
-bonsai = ["candle-core", "candle-nn", "candle-transformers", "hf-hub", "tokenizers", "notify"]
-
-[dependencies.candle-core]
-version = "0.9"
-optional = true
-
-[dependencies.candle-nn]
-version = "0.9"
-optional = true
-
-[dependencies.candle-transformers]
-version = "0.9"
-optional = true
-
-[dependencies.hf-hub]
-version = "0.4"
-optional = true
-
-[dependencies.tokenizers]
-version = "0.21"
-optional = true
-
-[dependencies.notify]
-version = "7"
-optional = true
-
 [dev-dependencies]
 tempfile = "3"

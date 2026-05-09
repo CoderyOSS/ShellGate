@@ -1,5 +1,5 @@
-use crate::bonsai::BonsaiModel;
 use crate::derived_grants;
+use crate::llm_client::LlmClient;
 use crate::pipeline::{DeliberationContext, Pipeline};
 use crate::stages::allow_list::AllowListStage;
 use crate::stages::catch_list::CatchListStage;
@@ -12,7 +12,7 @@ use std::sync::Arc;
 pub async fn handle_check_request(
     req: &GateRequest,
     state: &AppState,
-    model: Option<Arc<BonsaiModel>>,
+    model: Option<Arc<LlmClient>>,
 ) -> Result<GateResponse, GateError> {
     let conn = rusqlite::Connection::open(&state.config.gate.db_path)?;
 
@@ -122,19 +122,23 @@ pub async fn wait_for_approval(
 pub async fn handle_connection(
     stream: tokio::net::UnixStream,
     state: &AppState,
-    model: Option<Arc<BonsaiModel>>,
+    model: Option<Arc<LlmClient>>,
 ) -> Result<(), GateError> {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
-    use crate::protocol;
 
-    let mut buf = Vec::new();
     let (mut reader, mut writer) = stream.into_split();
-    reader.read_to_end(&mut buf).await?;
 
-    let request = protocol::parse_request(&buf)?;
+    let mut len_buf = [0u8; 4];
+    reader.read_exact(&mut len_buf).await?;
+    let body_len = u32::from_be_bytes(len_buf) as usize;
+
+    let mut body = vec![0u8; body_len];
+    reader.read_exact(&mut body).await?;
+
+    let request: GateRequest = serde_json::from_slice(&body)?;
     let response = handle_check_request(&request, state, model).await?;
 
-    let response_bytes = protocol::serialize_response(&response);
+    let response_bytes = crate::protocol::serialize_response(&response);
     writer.write_all(&response_bytes).await?;
 
     Ok(())

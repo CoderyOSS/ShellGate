@@ -1,7 +1,7 @@
 use crate::types::{DerivedGrant, GateError};
 use crate::pipeline::AgendaSummary;
 
-use globset::{Glob, GlobBuilder, GlobMatcher};
+use globset::{GlobBuilder, GlobMatcher};
 
 pub fn create_derived_grants(
     conn: &rusqlite::Connection,

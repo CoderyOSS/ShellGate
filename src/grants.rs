@@ -6,13 +6,13 @@ use crate::types::{GateError, Grant};
 /// Tasks: 4.3
 /// Async — validates patterns, calculates expires_at, inserts into grants table.
 pub async fn create_grant(
-    conn: &rusqlite::Connection,
-    action: &str,
-    repo_pattern: &str,
-    ttl_secs: u64,
-    max_uses: Option<u64>,
-    reason: &str,
-    created_by: &str,
+    _conn: &rusqlite::Connection,
+    _action: &str,
+    _repo_pattern: &str,
+    _ttl_secs: u64,
+    _max_uses: Option<u64>,
+    _reason: &str,
+    _created_by: &str,
 ) -> Result<Grant, GateError> {
     todo!("create_grant: validate action/repo_pattern, calculate expires_at = now + ttl_secs, insert into grants table")
 }
@@ -23,7 +23,7 @@ pub async fn create_grant(
 /// Tasks: 4.23
 /// Async — reads from grants table.
 pub async fn list_grants(
-    conn: &rusqlite::Connection,
+    _conn: &rusqlite::Connection,
 ) -> Result<Vec<Grant>, GateError> {
     todo!("list_grants: SELECT from grants WHERE revoked_at IS NULL AND (expires_at IS NULL OR expires_at > now)")
 }
@@ -34,8 +34,8 @@ pub async fn list_grants(
 /// Tasks: 4.23
 /// Async — sets revoked_at timestamp.
 pub async fn revoke_grant(
-    conn: &rusqlite::Connection,
-    id: &str,
+    _conn: &rusqlite::Connection,
+    _id: &str,
 ) -> Result<bool, GateError> {
     todo!("revoke_grant: UPDATE grants SET revoked_at = now WHERE id = ? AND revoked_at IS NULL, return rows_affected > 0")
 }
@@ -46,9 +46,9 @@ pub async fn revoke_grant(
 /// Tasks: 3.1
 /// Async — queries grants with glob matching on repo_pattern.
 pub async fn find_matching_grants(
-    conn: &rusqlite::Connection,
-    action: &str,
-    repo: &str,
+    _conn: &rusqlite::Connection,
+    _action: &str,
+    _repo: &str,
 ) -> Result<Vec<Grant>, GateError> {
     todo!("find_matching_grants: SELECT grants where action matches and repo_pattern glob-matches repo, not expired, not revoked")
 }

@@ -6,9 +6,9 @@ use crate::types::{CommandOutput, GateError, OutputChunk};
 /// Tasks: 4.8
 /// Async — spawns child process, waits for completion.
 pub async fn execute_command(
-    cmd: &str,
-    args: &[String],
-    env: &[(String, String)],
+    _cmd: &str,
+    _args: &[String],
+    _env: &[(String, String)],
 ) -> Result<CommandOutput, GateError> {
     todo!("execute_command: spawn Command::new(cmd).args(args).envs(env), capture stdout/stderr/exit_code")
 }
@@ -31,7 +31,7 @@ pub async fn stream_output(
 /// Tasks: 4.10
 /// Async — periodic interval task.
 pub async fn send_keepalive(
-    stream: &mut tokio::net::UnixStream,
+    _stream: &mut tokio::net::UnixStream,
 ) -> Result<(), GateError> {
     todo!("send_keepalive: spawn tokio interval at 60s, write ping frame to stream")
 }
@@ -42,10 +42,10 @@ pub async fn send_keepalive(
 /// Tasks: 4.11
 /// Async — wraps execute_command with tokio::time::timeout.
 pub async fn run_with_timeout(
-    cmd: &str,
-    args: &[String],
-    env: &[(String, String)],
-    timeout_secs: u64,
+    _cmd: &str,
+    _args: &[String],
+    _env: &[(String, String)],
+    _timeout_secs: u64,
 ) -> Result<CommandOutput, GateError> {
     todo!("run_with_timeout: wrap execute_command in tokio::time::timeout, kill process on timeout")
 }

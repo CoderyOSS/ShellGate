@@ -1,9 +1,9 @@
 pub mod agenda;
 pub mod bootstrap;
-pub mod bonsai;
 pub mod config;
 pub mod derived_grants;
 pub mod handler;
+pub mod llm_client;
 pub mod pipeline;
 pub mod prompts;
 pub mod protocol;

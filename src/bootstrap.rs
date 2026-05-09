@@ -1,10 +1,8 @@
 use crate::agenda;
-use crate::bonsai::BonsaiModel;
+use crate::llm_client::LlmClient;
 use crate::prompts;
 use crate::stages::llm::generate_rules_for_agenda;
 use crate::types::GateError;
-
-use std::sync::Arc;
 
 pub struct BootstrapResult {
     pub agenda_id: String,
@@ -19,7 +17,7 @@ pub struct BootstrapQuestion {
 }
 
 pub fn run_interactive_bootstrap(
-    model: &BonsaiModel,
+    model: &LlmClient,
     conn: &rusqlite::Connection,
     approved_command: &str,
     recent_commands: &[String],
@@ -35,10 +33,19 @@ pub fn run_interactive_bootstrap(
 
     let prompt = prompts::question_generation_prompt(approved_command, recent_commands);
 
-    let raw = match model.infer(&prompt) {
-        Ok(output) => output,
-        Err(e) => {
+    let model_for_thread = model.clone();
+    let raw = match std::thread::spawn(move || {
+        let rt = tokio::runtime::Runtime::new()
+            .expect("failed to create bootstrap runtime");
+        rt.block_on(model_for_thread.infer(&prompt))
+    }).join() {
+        Ok(Ok(output)) => output,
+        Ok(Err(e)) => {
             tracing::error!(error = %e, "bootstrap question generation failed");
+            return Ok(None);
+        }
+        Err(_) => {
+            tracing::error!("bootstrap thread panicked");
             return Ok(None);
         }
     };
@@ -70,7 +77,7 @@ pub fn run_interactive_bootstrap(
 
 pub fn complete_bootstrap(
     conn: &rusqlite::Connection,
-    model: &BonsaiModel,
+    model: &LlmClient,
     description: &str,
     scope: Option<&str>,
     ttl_secs: Option<u64>,

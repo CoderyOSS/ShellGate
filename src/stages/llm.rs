@@ -1,7 +1,7 @@
-use crate::bonsai::BonsaiModel;
 use crate::derived_grants::{self, NewDerivedGrant};
+use crate::llm_client::LlmClient;
 use crate::pipeline::{
-    AgendaSummary, DeliberationContext, DeliberationStage, NotifyMessage, NotifyStrategy,
+    DeliberationContext, DeliberationStage, NotifyMessage, NotifyStrategy,
     StageVerdict,
 };
 use crate::prompts;
@@ -10,12 +10,13 @@ use crate::types::GateError;
 use std::sync::Arc;
 
 pub struct LlmStage {
-    model: Arc<BonsaiModel>,
+    model: Arc<LlmClient>,
+    #[allow(dead_code)]
     db_path: String,
 }
 
 impl LlmStage {
-    pub fn new(model: Arc<BonsaiModel>, db_path: String) -> Self {
+    pub fn new(model: Arc<LlmClient>, db_path: String) -> Self {
         Self { model, db_path }
     }
 }
@@ -27,7 +28,7 @@ impl DeliberationStage for LlmStage {
 
     fn evaluate(&self, ctx: &DeliberationContext) -> Result<StageVerdict, GateError> {
         if !self.model.is_available() {
-            tracing::debug!("bonsai model not available, passing to next stage");
+            tracing::debug!("LLM client not available, passing to next stage");
             return Ok(StageVerdict::Pass);
         }
 
@@ -47,10 +48,20 @@ impl DeliberationStage for LlmStage {
             &ctx.config.stages.llm.warning_signs,
         );
 
-        let raw = match self.model.infer(&prompt) {
-            Ok(output) => output,
-            Err(e) => {
-                tracing::error!(error = %e, "bonsai inference failed");
+        let prompt_clone = prompt;
+        let model_clone = self.model.clone();
+        let raw = match std::thread::spawn(move || {
+            let rt = tokio::runtime::Runtime::new()
+                .expect("failed to create LLM runtime");
+            rt.block_on(model_clone.infer(&prompt_clone))
+        }).join() {
+            Ok(Ok(output)) => output,
+            Ok(Err(e)) => {
+                tracing::error!(error = %e, "LLM API call failed");
+                return Ok(StageVerdict::Pass);
+            }
+            Err(_) => {
+                tracing::error!("LLM thread panicked");
                 return Ok(StageVerdict::Pass);
             }
         };
@@ -114,7 +125,7 @@ impl DeliberationStage for LlmStage {
 }
 
 pub fn generate_rules_for_agenda(
-    model: &BonsaiModel,
+    model: &LlmClient,
     conn: &rusqlite::Connection,
     agenda_id: &str,
     description: &str,
@@ -125,7 +136,23 @@ pub fn generate_rules_for_agenda(
     }
 
     let prompt = prompts::batch_rule_prompt(description, scope);
-    let raw = model.infer(&prompt)?;
+
+    let model_for_thread = model.clone();
+    let raw = match std::thread::spawn(move || {
+        let rt = tokio::runtime::Runtime::new()
+            .expect("failed to create rule generation runtime");
+        rt.block_on(model_for_thread.infer(&prompt))
+    }).join() {
+        Ok(Ok(output)) => output,
+        Ok(Err(e)) => {
+            tracing::error!(error = %e, "LLM API call failed in rule generation");
+            return Ok(0);
+        }
+        Err(_) => {
+            tracing::error!("rule generation thread panicked");
+            return Ok(0);
+        }
+    };
 
     let rules = match prompts::parse_rules(&raw) {
         Some(r) => r,

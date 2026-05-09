@@ -1,14 +1,9 @@
 use crate::agenda;
-use crate::bonsai::BonsaiModel;
-use crate::stages::llm::generate_rules_for_agenda;
 use crate::types::GateError;
-
-use std::sync::Arc;
 
 pub async fn run_mcp_server(db_path: &str) -> Result<(), GateError> {
     let conn = rusqlite::Connection::open(db_path)?;
     let mut stdin = tokio::io::BufReader::new(tokio::io::stdin());
-    let stdout = tokio::io::stdout();
 
     loop {
         let mut line = String::new();

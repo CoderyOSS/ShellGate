@@ -1,19 +1,19 @@
 use crate::agenda;
-use crate::bonsai::BonsaiModel;
+use crate::llm_client::LlmClient;
 use crate::stages::llm::generate_rules_for_agenda;
 use crate::types::GateError;
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::Arc;
 
 pub struct OpenSpecWatcher {
     projects_dir: PathBuf,
     db_path: String,
-    model: Arc<BonsaiModel>,
+    model: Arc<LlmClient>,
 }
 
 impl OpenSpecWatcher {
-    pub fn new(projects_dir: impl Into<PathBuf>, db_path: String, model: Arc<BonsaiModel>) -> Self {
+    pub fn new(projects_dir: impl Into<PathBuf>, db_path: String, model: Arc<LlmClient>) -> Self {
         Self {
             projects_dir: projects_dir.into(),
             db_path,
@@ -109,11 +109,9 @@ fn parse_proposal(content: &str) -> (String, Option<String>) {
             continue;
         }
 
-        if in_what_changes && !line.trim().is_empty() && !line.starts_with('-') {
-            if description.is_empty() {
-                description = line.trim().to_string();
-                break;
-            }
+        if in_what_changes && !line.trim().is_empty() && !line.starts_with('-') && description.is_empty() {
+            description = line.trim().to_string();
+            break;
         }
     }
 

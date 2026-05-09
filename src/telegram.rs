@@ -1,14 +1,14 @@
-use crate::pipeline::{NotifyMessage, NotifyStrategy};
+use crate::pipeline::NotifyMessage;
 use crate::types::{AppState, ApprovalRequest, GateError};
 
 use teloxide::prelude::*;
 use teloxide::types::{InlineKeyboardButton, InlineKeyboardMarkup};
 
-pub async fn start_bot(config: crate::types::TelegramConfig, state: AppState) -> Result<(), GateError> {
+pub async fn start_bot(config: crate::types::TelegramConfig, _state: AppState) -> Result<(), GateError> {
     let bot = teloxide::Bot::new(&config.bot_token);
 
     let handler = dptree::entry()
-        .branch(Update::filter_callback_query().endpoint(|bot: teloxide::Bot, q: teloxide::types::CallbackQuery| async move {
+        .branch(Update::filter_callback_query().endpoint(|_bot: teloxide::Bot, q: teloxide::types::CallbackQuery| async move {
             tracing::info!(data = ?q.data, "callback query received");
             Ok::<_, teloxide::RequestError>(())
         }));
@@ -233,7 +233,7 @@ pub async fn send_bootstrap_questions(
 pub async fn handle_callback(
     bot: &teloxide::Bot,
     callback: teloxide::types::CallbackQuery,
-    state: &AppState,
+    _state: &AppState,
 ) -> Result<(), GateError> {
     let data = callback.data.as_deref().unwrap_or("");
     let chat_id = callback.message.as_ref().map(|m| m.chat().id);
@@ -278,7 +278,7 @@ pub async fn handle_grant_command(
     bot: &teloxide::Bot,
     msg: &teloxide::types::Message,
     args: &str,
-    state: &AppState,
+    _state: &AppState,
 ) -> Result<(), GateError> {
     bot.send_message(
         msg.chat.id,
@@ -294,7 +294,7 @@ pub async fn handle_revoke_command(
     bot: &teloxide::Bot,
     msg: &teloxide::types::Message,
     args: &str,
-    state: &AppState,
+    _state: &AppState,
 ) -> Result<(), GateError> {
     bot.send_message(
         msg.chat.id,

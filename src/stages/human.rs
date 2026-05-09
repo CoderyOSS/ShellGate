@@ -18,7 +18,7 @@ impl DeliberationStage for HumanApprovalStage {
     }
 
     fn evaluate(&self, ctx: &DeliberationContext) -> Result<StageVerdict, GateError> {
-        let approval_id = uuid::Uuid::new_v4().to_string();
+        let _approval_id = uuid::Uuid::new_v4().to_string();
 
         Ok(StageVerdict::BlockAndNotify {
             message: NotifyMessage {

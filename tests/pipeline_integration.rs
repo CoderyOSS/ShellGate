@@ -1,6 +1,4 @@
 use gate_server::agenda;
-use gate_server::bonsai;
-use gate_server::config;
 use gate_server::derived_grants::{self, NewDerivedGrant};
 use gate_server::handler;
 use gate_server::pipeline::{DeliberationContext, DeliberationStage, Pipeline, PipelineConfig, StageVerdict};
@@ -8,7 +6,6 @@ use gate_server::schema;
 use gate_server::stages::allow_list::AllowListStage;
 use gate_server::stages::catch_list::CatchListStage;
 use gate_server::stages::human::HumanApprovalStage;
-use gate_server::stages::llm::LlmStage;
 use gate_server::types::{AppState, GateRequest};
 
 use std::collections::HashMap;
@@ -42,7 +39,10 @@ fn setup_temp_db() -> (tempfile::TempDir, String, rusqlite::Connection) {
 }
 
 fn test_config() -> PipelineConfig {
-    PipelineConfig::default()
+    let mut config = PipelineConfig::default();
+    config.stages.allow_list.sampling_rate = 0.0;
+    config.stages.human.timeout_seconds = 1;
+    config
 }
 
 fn seed_agenda_with_grants(
@@ -332,22 +332,31 @@ fn pipeline_human_stage_blocks() {
 
 #[test]
 fn llm_stage_passes_when_model_unavailable() {
-    let bonsai_config = gate_server::pipeline::BonsaiConfig {
-        model_path: "/nonexistent/model.gguf".into(),
-        model_size: "4b".into(),
+    let llm_config = gate_server::pipeline::LlmConfig {
+        model_name: "test".into(),
+        api_url: "https://example.com/api".into(),
+        api_key: String::new(),
         max_tokens: 128,
         temperature: 0.1,
     };
 
-    let model = gate_server::bonsai::BonsaiModel::load(&bonsai_config).expect("load bonsai");
-    assert!(!model.is_available());
-
-    let stage = LlmStage::new(Arc::new(model), ":memory:".to_string());
+    let load_result = gate_server::llm_client::LlmClient::load(&llm_config);
+    assert!(load_result.is_err(), "loading without API key should fail");
 
     let ctx = make_ctx("cargo", &["test"]);
-    let result = stage.evaluate(&ctx).expect("evaluate");
 
-    assert!(matches!(result, StageVerdict::Pass));
+    let stages: Vec<Box<dyn DeliberationStage>> = vec![
+        Box::new(AllowListStage::new(1.0, ":memory:".to_string())),
+        Box::new(CatchListStage::new(&["auth:*".to_string()]).unwrap()),
+        Box::new(HumanApprovalStage {
+            timeout_secs: 1,
+            pending: Arc::new(Default::default()),
+        }),
+    ];
+    let pipeline = Pipeline::new(stages);
+    let result = pipeline.run(&ctx);
+
+    assert!(!result.allowed, "no stages should allow without llm");
 }
 
 #[test]

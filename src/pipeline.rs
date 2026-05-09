@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::types::{AuditEntry, Config, GateError};
+use crate::types::{AuditEntry, GateError};
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum StageVerdict {
@@ -54,7 +54,7 @@ pub struct AgendaSummary {
 pub struct PipelineConfig {
     pub flows: HashMap<String, Vec<String>>,
     pub stages: StagesConfig,
-    pub bonsai: BonsaiConfig,
+    pub llm: LlmConfig,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -89,9 +89,10 @@ pub struct HumanStageConfig {
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct BonsaiConfig {
-    pub model_path: String,
-    pub model_size: String,
+pub struct LlmConfig {
+    pub model_name: String,
+    pub api_url: String,
+    pub api_key: String,
     pub max_tokens: usize,
     pub temperature: f64,
 }
@@ -144,10 +145,11 @@ impl Default for PipelineConfig {
                     timeout_seconds: 1800,
                 },
             },
-            bonsai: BonsaiConfig {
-                model_path: "/opt/gate/models/bonsai-4b.gguf".into(),
-                model_size: "4b".into(),
-                max_tokens: 1024,
+            llm: LlmConfig {
+                model_name: "deepseek-chat".into(),
+                api_url: "https://api.deepseek.com/v1/chat/completions".into(),
+                api_key: std::env::var("DEEPSEEK_API_KEY").unwrap_or_default(),
+                max_tokens: 256,
                 temperature: 0.1,
             },
         }

@@ -1,6 +1,6 @@
-use crate::bonsai::BonsaiModel;
 use crate::handler;
-use crate::pipeline::BonsaiConfig;
+use crate::llm_client::LlmClient;
+use crate::pipeline::LlmConfig;
 use crate::schema;
 use crate::types::{AppState, Config, GateError};
 
@@ -19,7 +19,7 @@ pub async fn run_server(config: Config) -> Result<(), GateError> {
         pending: Arc::new(tokio::sync::RwLock::new(HashMap::new())),
     };
 
-    let model = load_bonsai_model(&config.pipeline.bonsai);
+    let model = load_llm_client(&config.pipeline.llm);
 
     let socket_path = config.gate.socket_path.clone();
     if std::path::Path::new(&socket_path).exists() {
@@ -58,18 +58,18 @@ pub async fn run_server(config: Config) -> Result<(), GateError> {
     Ok(())
 }
 
-fn load_bonsai_model(config: &BonsaiConfig) -> Option<Arc<BonsaiModel>> {
-    match BonsaiModel::load(config) {
-        Ok(model) if model.is_available() => {
-            tracing::info!("bonsai model loaded");
-            Some(Arc::new(model))
+fn load_llm_client(config: &LlmConfig) -> Option<Arc<LlmClient>> {
+    match LlmClient::load(config) {
+        Ok(client) if client.is_available() => {
+            tracing::info!(model = %config.model_name, "LLM client configured");
+            Some(Arc::new(client))
         }
         Ok(_) => {
-            tracing::info!("bonsai model unavailable (no model file), LLM stage will pass");
+            tracing::info!("LLM client unavailable (no API key), LLM stage will pass");
             None
         }
         Err(e) => {
-            tracing::warn!(error = %e, "bonsai model load failed, LLM stage will pass");
+            tracing::warn!(error = %e, "LLM client setup failed, LLM stage will pass");
             None
         }
     }

@@ -5,7 +5,7 @@ use crate::types::{GateError, GitHubConfig};
 /// Spec: gate-server/spec.md > "GitHub App token generation"
 /// Tasks: 3.3
 /// Async — creates JWT, calls GitHub API for installation token.
-pub async fn generate_installation_token(config: &GitHubConfig) -> Result<String, GateError> {
+pub async fn generate_installation_token(_config: &GitHubConfig) -> Result<String, GateError> {
     todo!("generate_installation_token: load private key, create RS256 JWT with app_id, POST /app/installations/{{id}}/access_tokens")
 }
 
@@ -23,6 +23,6 @@ pub async fn get_cached_token() -> Result<String, GateError> {
 /// Spec: gate-server/spec.md > "GitHub App token generation"
 /// Tasks: 3.3
 /// Async — periodic refresh loop, 5-minute grace period on failure.
-pub async fn refresh_token_background(config: GitHubConfig) -> Result<(), GateError> {
+pub async fn refresh_token_background(_config: GitHubConfig) -> Result<(), GateError> {
     todo!("refresh_token_background: spawn tokio interval at 50min mark, call generate_installation_token, update cache, 5min grace on failure")
 }

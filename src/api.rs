@@ -16,7 +16,7 @@ pub struct ApiError {
 /// Spec: gate-server/spec.md > "REST API for web UI and integrations"
 /// Tasks: 4.21
 /// Pure function — constructs router.
-pub fn build_router(state: AppState) -> axum::Router {
+pub fn build_router(_state: AppState) -> axum::Router {
     todo!("build_router: create axum Router with /api/approvals, /api/grants, /api/audit, /api/permissions, /api/config, /api/events, /health routes")
 }
 

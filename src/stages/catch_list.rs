@@ -2,8 +2,6 @@ use crate::pipeline::{DeliberationContext, DeliberationStage, NotifyMessage, Not
 use crate::types::GateError;
 
 use globset::{GlobBuilder, GlobMatcher};
-use std::sync::Arc;
-
 pub struct CatchListStage {
     patterns: Vec<(String, GlobMatcher)>,
 }

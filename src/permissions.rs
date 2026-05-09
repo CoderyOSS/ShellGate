@@ -8,11 +8,11 @@ use crate::types::{Decision, DefaultPermission, GateError, Grant, PermissionStat
 /// Pure function — no async, no DB access.
 /// Suggested return: could also be Result<Decision, GateError> if error handling needed.
 pub fn check_permission(
-    action: &str,
-    repo: &str,
-    grants: &[Grant],
-    defaults: &[DefaultPermission],
-    blocked: &[String],
+    _action: &str,
+    _repo: &str,
+    _grants: &[Grant],
+    _defaults: &[DefaultPermission],
+    _blocked: &[String],
 ) -> Decision {
     todo!("check_permission: implement evaluation order — blocked → grants → defaults → needs_approval")
 }
@@ -23,7 +23,7 @@ pub fn check_permission(
 /// Tasks: 2.2
 /// Async — inserts default rows into default_permissions table.
 pub async fn seed_default_permissions(
-    conn: &rusqlite::Connection,
+    _conn: &rusqlite::Connection,
 ) -> Result<(), GateError> {
     todo!("seed_default_permissions: insert ON/OFF defaults for all permission categories, set auth:* as blocked")
 }
@@ -34,7 +34,7 @@ pub async fn seed_default_permissions(
 /// Tasks: 4.25
 /// Async — reads from default_permissions table.
 pub async fn get_default_permissions(
-    conn: &rusqlite::Connection,
+    _conn: &rusqlite::Connection,
 ) -> Result<Vec<DefaultPermission>, GateError> {
     todo!("get_default_permissions: SELECT all rows from default_permissions")
 }
@@ -45,9 +45,9 @@ pub async fn get_default_permissions(
 /// Tasks: 4.25
 /// Async — updates default_permissions row.
 pub async fn update_default_permission(
-    conn: &rusqlite::Connection,
-    action: &str,
-    state: PermissionState,
+    _conn: &rusqlite::Connection,
+    _action: &str,
+    _state: PermissionState,
 ) -> Result<(), GateError> {
     todo!("update_default_permission: UPDATE default_permissions SET state = ? WHERE action = ?")
 }
@@ -58,7 +58,7 @@ pub async fn update_default_permission(
 /// Tasks: 4.25
 /// Async — deletes all rows, re-seeds defaults.
 pub async fn reset_permissions_to_defaults(
-    conn: &rusqlite::Connection,
+    _conn: &rusqlite::Connection,
 ) -> Result<(), GateError> {
     todo!("reset_permissions_to_defaults: DELETE FROM default_permissions, then seed_default_permissions")
 }
