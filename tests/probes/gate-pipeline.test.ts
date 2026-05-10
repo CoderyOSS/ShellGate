@@ -257,19 +257,19 @@ describe("allow_list + safe commands", () => {
 
 describe("llm deliberation", () => {
   it("captures LLM prompt and allows when LLM says ALLOW", async () => {
-    await p.http.put({
-      status: 200,
-      body: {
-        choices: [{
-          message: {
-            content: "DECISION: ALLOW\nCONFIDENCE: 0.90\nREASON: command fits the active agenda"
-          }
-        }]
-      },
-    });
-
     p.record.begin({ test_name: "llm deliberation > captures prompt and allows" });
     try {
+      await p.http.put({
+        status: 200,
+        body: {
+          choices: [{
+            message: {
+              content: "DECISION: ALLOW\nCONFIDENCE: 0.90\nREASON: command fits the active agenda"
+            }
+          }]
+        },
+      });
+
       const res = await p.unix.send({
         data: checkCommand({ command: "unknown-tool", args: ["--help"], cwd: "/tmp", pid: 9999 }),
         timeout_ms: 10000,
@@ -294,19 +294,19 @@ describe("llm deliberation", () => {
   });
 
   it("blocks when LLM returns BLOCK verdict", async () => {
-    await p.http.put({
-      status: 200,
-      body: {
-        choices: [{
-          message: {
-            content: "DECISION: BLOCK\nCONFIDENCE: 0.95\nREASON: dangerous operation detected"
-          }
-        }]
-      },
-    });
-
     p.record.begin({ test_name: "llm deliberation > blocks on LLM BLOCK verdict" });
     try {
+      await p.http.put({
+        status: 200,
+        body: {
+          choices: [{
+            message: {
+              content: "DECISION: BLOCK\nCONFIDENCE: 0.95\nREASON: dangerous operation detected"
+            }
+          }]
+        },
+      });
+
       const res = await p.unix.send({
         data: checkCommand({ command: "unknown-dangerous", args: [], cwd: "/tmp", pid: 9999 }),
         timeout_ms: 10000,
@@ -315,6 +315,9 @@ describe("llm deliberation", () => {
 
       expect(response.action).toBe("reject");
       expect(response.reason).toContain("dangerous");
+
+      const requests = await p.http.read();
+      expect(requests.length).toBeGreaterThanOrEqual(1);
 
       p.record.end({ result: "pass" });
     } catch (e) {
