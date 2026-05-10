@@ -1,8 +1,8 @@
 unix:
   client:
-    path: "/tmp/gate-e2e.sock"
+    path: "/tmp/gate-probes.sock"
     timeout_ms: 30000
 
 sql:
-  path: "/tmp/gate-e2e.db"
-  reset_on_start: true
+  path: "/tmp/gate-probes.db"
+  reset_on_start: false
