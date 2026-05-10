@@ -52,8 +52,8 @@ dist_path = "/tmp/gate-web-probes"
 
 [pipeline.llm]
 model_name = "deepseek-chat"
-api_url = "https://api.deepseek.com/v1/chat/completions"
-api_key = ""
+api_url = "http://127.0.0.1:19876/v1/chat/completions"
+api_key = "test"
 max_tokens = 256
 temperature = 0.1
 
@@ -73,7 +73,7 @@ warning_signs = []
 timeout_seconds = 30
 
 [pipeline.flows]
-command_check = ["catch_list", "allow_list", "human"]
+command_check = ["catch_list", "allow_list", "llm", "human"]
 mcp_request = ["allow_list", "human"]
 interactive_bootstrap = []
 `;
@@ -92,6 +92,7 @@ interactive_bootstrap = []
   p = await probes({
     unix: { client: { path: SOCKET, timeout_ms: 30000 } },
     sql: { path: DB_PATH },
+    http: { server: { port: 19876 } },
     record: { output_path: PROOF_PATH },
   });
 
@@ -246,6 +247,75 @@ describe("allow_list + safe commands", () => {
       const res = await p.unix.send({ data: checkCommand({ command: "ls", args: ["-la"], cwd: "/tmp", pid: 9999 }), timeout_ms: 10000 });
       const response = parseGateResponseRaw(res);
       expect(response.action).toBe("allow");
+      p.record.end({ result: "pass" });
+    } catch (e) {
+      p.record.end({ result: "fail", error: String(e) });
+      throw e;
+    }
+  });
+});
+
+describe("llm deliberation", () => {
+  it("captures LLM prompt and allows when LLM says ALLOW", async () => {
+    await p.http.put({
+      status: 200,
+      body: {
+        choices: [{
+          message: {
+            content: "DECISION: ALLOW\nCONFIDENCE: 0.90\nREASON: command fits the active agenda"
+          }
+        }]
+      },
+    });
+
+    p.record.begin({ test_name: "llm deliberation > captures prompt and allows" });
+    try {
+      const res = await p.unix.send({
+        data: checkCommand({ command: "unknown-tool", args: ["--help"], cwd: "/tmp", pid: 9999 }),
+        timeout_ms: 10000,
+      });
+      const response = parseGateResponseRaw(res);
+
+      expect(response.action).toBe("allow");
+
+      const requests = await p.http.read();
+      expect(requests.length).toBeGreaterThanOrEqual(1);
+      expect(requests[0].method).toBe("POST");
+      const promptBody = requests[0].body;
+      expect(promptBody).toBeTruthy();
+      expect(promptBody!).toContain("security gatekeeper");
+      expect(promptBody!).toContain("unknown-tool");
+
+      p.record.end({ result: "pass" });
+    } catch (e) {
+      p.record.end({ result: "fail", error: String(e) });
+      throw e;
+    }
+  });
+
+  it("blocks when LLM returns BLOCK verdict", async () => {
+    await p.http.put({
+      status: 200,
+      body: {
+        choices: [{
+          message: {
+            content: "DECISION: BLOCK\nCONFIDENCE: 0.95\nREASON: dangerous operation detected"
+          }
+        }]
+      },
+    });
+
+    p.record.begin({ test_name: "llm deliberation > blocks on LLM BLOCK verdict" });
+    try {
+      const res = await p.unix.send({
+        data: checkCommand({ command: "unknown-dangerous", args: [], cwd: "/tmp", pid: 9999 }),
+        timeout_ms: 10000,
+      });
+      const response = parseGateResponseRaw(res);
+
+      expect(response.action).toBe("reject");
+      expect(response.reason).toContain("dangerous");
+
       p.record.end({ result: "pass" });
     } catch (e) {
       p.record.end({ result: "fail", error: String(e) });

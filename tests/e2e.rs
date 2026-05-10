@@ -208,6 +208,7 @@ interactive_bootstrap = []
 
     #[test]
     fn e2e_catch_list_blocks_rm_rf() {
+        let start = std::time::Instant::now();
         let server = GateServer::start().expect("gate-server start");
         let result = server
             .send_gate_request("rm", &["-rf", "/"])
@@ -220,10 +221,15 @@ interactive_bootstrap = []
             action,
             serde_json::to_string_pretty(&result).unwrap_or_default()
         );
+
+        record_e2e("e2e_catch_list_blocks_rm_rf", start, "pass", None,
+            &serde_json::json!({"command":"rm","args":["-rf","/"]}),
+            &result);
     }
 
     #[test]
     fn e2e_safe_command_allowed_with_grant() {
+        let start = std::time::Instant::now();
         let server = GateServer::start().expect("gate-server start");
         server.seed_grant("echo", "hello");
         let result = server
@@ -237,10 +243,15 @@ interactive_bootstrap = []
             action,
             serde_json::to_string_pretty(&result).unwrap_or_default()
         );
+
+        record_e2e("e2e_safe_command_allowed_with_grant", start, "pass", None,
+            &serde_json::json!({"command":"echo","args":["hello"]}),
+            &result);
     }
 
     #[test]
     fn e2e_catch_list_blocks_auth_command() {
+        let start = std::time::Instant::now();
         let server = GateServer::start().expect("gate-server start");
         let result = server
             .send_gate_request("auth:login", &[])
@@ -252,22 +263,105 @@ interactive_bootstrap = []
             "expected reject for auth:*, got {}",
             action
         );
+
+        record_e2e("e2e_catch_list_blocks_auth_command", start, "pass", None,
+            &serde_json::json!({"command":"auth:login","args":[]}),
+            &result);
     }
 
     #[test]
     fn e2e_gate_server_starts_and_accepts_connections() {
+        let start = std::time::Instant::now();
         let server = GateServer::start().expect("gate-server start");
         let stream = server.connect().expect("connect");
         drop(stream);
+
+        record_e2e("e2e_gate_server_starts_and_accepts_connections", start, "pass", None,
+            &serde_json::json!({"action":"connect"}),
+            &serde_json::json!({"result":"ok"}));
     }
 
     #[test]
     fn e2e_spawn_shell_connects() {
         if std::env::var("SKIP_SPAWN_SHELL_TEST").is_ok() {
+            record_e2e("e2e_spawn_shell_connects", std::time::Instant::now(), "skip", None,
+                &serde_json::json!({"type":"spawn_shell"}),
+                &serde_json::json!({"result":"skipped"}));
             return;
         }
 
+        let start = std::time::Instant::now();
         let server = GateServer::start().expect("gate-server start");
         server.send_spawn_shell().expect("spawn shell");
+
+        record_e2e("e2e_spawn_shell_connects", start, "pass", None,
+            &serde_json::json!({"type":"spawn_shell"}),
+            &serde_json::json!({"result":"connected"}));
+    }
+
+    struct E2eProofEntry {
+        test_name: String,
+        duration_ms: u64,
+        result: String,
+        error: Option<String>,
+        send: serde_json::Value,
+        response: serde_json::Value,
+    }
+
+    static PROOF_ENTRIES: std::sync::Mutex<Vec<E2eProofEntry>> = std::sync::Mutex::new(Vec::new());
+    static WRITTEN: std::sync::Once = std::sync::Once::new();
+
+    extern "C" fn write_proof_records_on_exit() {
+        let entries = PROOF_ENTRIES.lock().unwrap();
+        if entries.is_empty() {
+            return;
+        }
+        let out_path = "tests/proof-records-e2e.md";
+        let mut md = String::new();
+        md.push_str("# ShellGate E2E Proof Records (Rust)\n\n");
+        md.push_str(&format!("**Date:** {}\n", chrono::Utc::now().to_rfc3339()));
+        md.push_str(&format!("**Tests:** {} run\n\n---\n\n", entries.len()));
+
+        for entry in entries.iter() {
+            let status_icon = if entry.result == "pass" { "✓" } else { "✗" };
+            md.push_str(&format!("## {}\n\n", entry.test_name));
+            md.push_str(&format!("**Status:** {} {} | **Duration:** {}ms\n\n",
+                status_icon, entry.result, entry.duration_ms));
+            if let Some(ref err) = entry.error {
+                md.push_str(&format!("**Error:** {}\n\n", err));
+            }
+            md.push_str(&format!("### Send\n\n```json\n{}\n```\n\n",
+                serde_json::to_string_pretty(&entry.send).unwrap_or_default()));
+            md.push_str(&format!("### Response\n\n```json\n{}\n```\n\n---\n\n",
+                serde_json::to_string_pretty(&entry.response).unwrap_or_default()));
+        }
+
+        std::fs::write(out_path, md).expect("write proof records");
+        println!("E2E proof records written to {}", out_path);
+    }
+
+    fn ensure_atexit() {
+        WRITTEN.call_once(|| {
+            unsafe { libc::atexit(write_proof_records_on_exit); }
+        });
+    }
+
+    fn record_e2e(
+        test_name: &str,
+        start: std::time::Instant,
+        result: &str,
+        error: Option<&str>,
+        send: &serde_json::Value,
+        response: &serde_json::Value,
+    ) {
+        ensure_atexit();
+        PROOF_ENTRIES.lock().unwrap().push(E2eProofEntry {
+            test_name: test_name.to_string(),
+            duration_ms: start.elapsed().as_millis() as u64,
+            result: result.to_string(),
+            error: error.map(|e| e.to_string()),
+            send: send.clone(),
+            response: response.clone(),
+        });
     }
 }

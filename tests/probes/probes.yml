@@ -7,5 +7,9 @@ sql:
   path: "/tmp/gate-probes.db"
   reset_on_start: false
 
+http:
+  server:
+    port: 19876
+
 record:
   output_path: "proof-records.md"
