@@ -11,6 +11,12 @@ pub mod schema;
 pub mod stages;
 pub mod types;
 
+#[cfg(feature = "seccomp")]
+pub mod seccomp_gate;
+
+#[cfg(feature = "seccomp")]
+pub mod session;
+
 #[cfg(test)]
 mod tests {
     use super::pipeline::*;

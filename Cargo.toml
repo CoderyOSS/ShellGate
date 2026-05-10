@@ -1,7 +1,8 @@
 [package]
 name = "gate-server"
-version = "0.2.0"
+version = "0.1.0-alpha.1"
 edition = "2021"
+description = "AI agent shell command gateway with seccomp-based kernel enforcement"
 
 [lib]
 name = "gate_server"
@@ -10,6 +11,14 @@ path = "src/lib.rs"
 [[bin]]
 name = "gate-server"
 path = "src/main.rs"
+
+[[bin]]
+name = "sgsh-connect"
+path = "src/sgsh-connect.rs"
+
+[features]
+default = ["seccomp"]
+seccomp = ["libseccomp"]
 
 [dependencies]
 tokio = { version = "1", features = ["full"] }
@@ -30,6 +39,10 @@ jsonwebtoken = "9"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 tokio-stream = "0.1"
 futures = "0.3"
+libseccomp = { version = "0.4", optional = true }
+inotify = "0.11"
+libc = "0.2"
+nix = { version = "0.30", features = ["socket", "ioctl", "sched"] }
 
 [dev-dependencies]
 tempfile = "3"

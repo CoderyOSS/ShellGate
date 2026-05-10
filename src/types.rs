@@ -226,3 +226,21 @@ pub struct DerivedGrant {
     pub created_at: String,
     pub expires_at: String,
 }
+
+#[derive(Debug, Clone)]
+pub struct Session {
+    pub id: String,
+    pub pid: u32,
+    pub notify_fd: std::os::unix::io::RawFd,
+    pub pty_fd: std::os::unix::io::RawFd,
+    pub cwd: String,
+    pub created_at: String,
+}
+
+pub struct SeccompNotification {
+    pub id: u64,
+    pub pid: u32,
+    pub syscall_nr: i32,
+    pub args: [u64; 6],
+    pub instruction_pointer: u64,
+}

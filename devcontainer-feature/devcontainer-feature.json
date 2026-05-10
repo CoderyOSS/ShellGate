@@ -1,0 +1,50 @@
+{
+    "name": "ShellGate",
+    "id": "shellgate",
+    "version": "0.1.0-alpha.1",
+    "description": "AI agent shell command gateway with seccomp-based kernel enforcement",
+    "documentationURL": "https://github.com/anomalyco/ShellGate",
+    "licenseURL": "https://github.com/anomalyco/ShellGate",
+    "entrypoint": "/opt/gate/gate-server",
+    "options": {
+        "version": {
+            "type": "string",
+            "default": "0.1.0-alpha.1",
+            "description": "ShellGate version to install"
+        },
+        "llmApiKey": {
+            "type": "string",
+            "default": "",
+            "description": "LLM API key (DeepSeek or compatible)"
+        },
+        "llmModel": {
+            "type": "string",
+            "default": "deepseek-chat",
+            "description": "LLM model name"
+        },
+        "llmApiUrl": {
+            "type": "string",
+            "default": "https://api.deepseek.com/v1/chat/completions",
+            "description": "LLM API URL"
+        },
+        "telegramBotToken": {
+            "type": "string",
+            "default": "",
+            "description": "Telegram bot token for human approval notifications"
+        },
+        "telegramChatId": {
+            "type": "string",
+            "default": "",
+            "description": "Telegram chat ID for notifications"
+        },
+        "shellEngine": {
+            "type": "string",
+            "default": "",
+            "description": "Path to shell binary to use (default: auto-detect /bin/bash)"
+        }
+    },
+    "installsAfter": [
+        "ghcr.io/devcontainers/features/common-utils"
+    ],
+    "securityOpt": ["seccomp=unconfined"]
+}

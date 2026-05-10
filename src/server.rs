@@ -58,7 +58,7 @@ pub async fn run_server(config: Config) -> Result<(), GateError> {
     Ok(())
 }
 
-fn load_llm_client(config: &LlmConfig) -> Option<Arc<LlmClient>> {
+pub fn load_llm_client(config: &LlmConfig) -> Option<Arc<LlmClient>> {
     match LlmClient::load(config) {
         Ok(client) if client.is_available() => {
             tracing::info!(model = %config.model_name, "LLM client configured");

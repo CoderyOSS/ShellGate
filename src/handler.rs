@@ -1,6 +1,6 @@
 use crate::derived_grants;
 use crate::llm_client::LlmClient;
-use crate::pipeline::{DeliberationContext, Pipeline};
+use crate::pipeline::{DeliberationContext, NotifyMessage, Pipeline, PipelineResult};
 use crate::stages::allow_list::AllowListStage;
 use crate::stages::catch_list::CatchListStage;
 use crate::stages::human::HumanApprovalStage;
@@ -9,15 +9,19 @@ use crate::types::{AppState, AuditEntry, GateError, GateRequest, GateResponse};
 
 use std::sync::Arc;
 
-pub async fn handle_check_request(
+pub async fn run_pipeline(
     req: &GateRequest,
     state: &AppState,
-    model: Option<Arc<LlmClient>>,
-) -> Result<GateResponse, GateError> {
+    model: &Option<Arc<LlmClient>>,
+    flow_name: &str,
+) -> Result<PipelineResult, GateError> {
     let conn = rusqlite::Connection::open(&state.config.gate.db_path)?;
 
     let agendas = derived_grants::agendas_to_summaries(&conn)?;
-    let recent_history = get_recent_history(&conn, state.config.pipeline.stages.llm.max_context_commands)?;
+    let recent_history = get_recent_history_raw(
+        &conn,
+        state.config.pipeline.stages.llm.max_context_commands,
+    )?;
 
     let ctx = DeliberationContext {
         command: req.command.clone(),
@@ -32,12 +36,12 @@ pub async fn handle_check_request(
     let flow = state
         .config
         .pipeline
-        .get_flow("command_check")
+        .get_flow(flow_name)
         .cloned()
         .unwrap_or_default();
 
-    let mut stages: Vec<Box<dyn crate::pipeline::DeliberationStage>> = Vec::new();
     let db_path = state.config.gate.db_path.clone();
+    let mut stages: Vec<Box<dyn crate::pipeline::DeliberationStage>> = Vec::new();
 
     for name in &flow {
         match name.as_str() {
@@ -67,8 +71,23 @@ pub async fn handle_check_request(
     let result = pipeline.run(&ctx);
 
     for notification in &result.notifications {
-        send_notification(notification, &state.config.telegram.bot_token, &state.config.telegram.chat_id).await;
+        dispatch_notification(
+            notification,
+            &state.config.telegram.bot_token,
+            &state.config.telegram.chat_id,
+        )
+        .await;
     }
+
+    Ok(result)
+}
+
+pub async fn handle_check_request(
+    req: &GateRequest,
+    state: &AppState,
+    model: Option<Arc<LlmClient>>,
+) -> Result<GateResponse, GateError> {
+    let result = run_pipeline(req, state, &model, "command_check").await?;
 
     if result.allowed {
         Ok(GateResponse {
@@ -92,7 +111,11 @@ pub async fn wait_for_approval(
     approval_id: &str,
 ) -> Result<GateResponse, GateError> {
     let (tx, rx) = tokio::sync::oneshot::channel();
-    state.pending.write().await.insert(approval_id.to_string(), tx);
+    state
+        .pending
+        .write()
+        .await
+        .insert(approval_id.to_string(), tx);
 
     match tokio::time::timeout(
         std::time::Duration::from_secs(state.config.pipeline.stages.human.timeout_seconds),
@@ -144,7 +167,7 @@ pub async fn handle_connection(
     Ok(())
 }
 
-fn get_recent_history(
+pub fn get_recent_history_raw(
     conn: &rusqlite::Connection,
     limit: usize,
 ) -> Result<Vec<AuditEntry>, GateError> {
@@ -171,11 +194,7 @@ fn get_recent_history(
     Ok(entries)
 }
 
-async fn send_notification(
-    msg: &crate::pipeline::NotifyMessage,
-    _bot_token: &str,
-    _chat_id: &i64,
-) {
+pub async fn dispatch_notification(msg: &NotifyMessage, _bot_token: &str, _chat_id: &i64) {
     tracing::info!(
         strategy = ?msg.strategy,
         command = %msg.command,
