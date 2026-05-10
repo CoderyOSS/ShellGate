@@ -19,6 +19,7 @@ path = "src/sgsh-connect.rs"
 [features]
 default = ["seccomp"]
 seccomp = ["libseccomp"]
+e2e = []
 
 [dependencies]
 tokio = { version = "1", features = ["full"] }
