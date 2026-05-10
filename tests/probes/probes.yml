@@ -6,3 +6,6 @@ unix:
 sql:
   path: "/tmp/gate-probes.db"
   reset_on_start: false
+
+record:
+  output_path: "proof-records.md"
