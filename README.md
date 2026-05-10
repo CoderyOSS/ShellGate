@@ -172,4 +172,4 @@ cargo build --release --no-default-features
 
 ## License
 
-MIT OR Apache-2.0
+MIT
