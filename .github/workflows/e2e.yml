@@ -61,4 +61,6 @@ jobs:
         run: |
           cd tests/probes
           bun install @codery/probes
-          bun test catch-list.test.ts allow-list.test.ts llm-deliberation.test.ts
+          for f in catch-list.test.ts allow-list.test.ts llm-deliberation.test.ts; do
+            bun test "$f" || exit 1
+          done

@@ -4,3 +4,4 @@
 *.safetensors
 *.onnx
 models/
+.probes-state.yaml

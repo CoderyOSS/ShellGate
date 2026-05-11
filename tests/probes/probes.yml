@@ -1,15 +1,20 @@
-unix:
-  client:
-    path: "/tmp/gate-probes.sock"
-    timeout_ms: 30000
+launcher:
+  command: ./start-gate.sh
+  ready_socket: /tmp/gate-probes.sock
+  poll_interval_ms: 50
+  poll_timeout_ms: 10000
 
-sql:
-  path: "/tmp/gate-probes.db"
-  reset_on_start: false
+proof:
+  output: proof-records.md
+  title: ShellGate E2E Proof Records
 
-http:
-  server:
-    port: 19876
-
-record:
-  output_path: "proof-records.md"
+interfaces:
+  unix:
+    client:
+      path: /tmp/gate-probes.sock
+      timeout_ms: 30000
+  sql:
+    path: /tmp/gate-probes.db
+  http:
+    server:
+      port: 19876
