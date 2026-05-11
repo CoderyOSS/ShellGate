@@ -2,22 +2,15 @@ import { probes } from "@codery/probes";
 import { spawn, type Subprocess } from "bun";
 import { unlinkSync, writeFileSync, existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import type { ProbesInstance } from "@codery/probes";
 
-const SOCKET = "/tmp/gate-probes.sock";
-const DB_PATH = "/tmp/gate-probes.db";
-const CONFIG_PATH = "/tmp/gate-probes-config.toml";
 const PROOF_PATH = join(import.meta.dir, "proof-records.md");
 
-let _ctx: ProbesContext | null = null;
-let _initPromise: Promise<ProbesContext> | null = null;
-let _releaseCount = 0;
-const EXPECTED_RELEASES = 3;
-let _cleanedUp = false;
+let _sessionCounter = 0;
 
 export interface ProbesContext {
-  p: Awaited<ReturnType<typeof probes>>;
-  configPath: string;
-  server: Subprocess;
+  p: ProbesInstance;
+  teardown: () => Promise<void>;
 }
 
 export interface GateResponse {
@@ -27,52 +20,16 @@ export interface GateResponse {
   reason?: string;
 }
 
-export async function getProbesContext(): Promise<ProbesContext> {
-  if (_ctx) return _ctx;
-  if (!_initPromise) _initPromise = initProbes();
-  _ctx = await _initPromise;
-  return _ctx;
-}
-
-export async function releaseProbesContext(): Promise<void> {
-  _releaseCount++;
-  if (_releaseCount < EXPECTED_RELEASES) return;
-  if (_cleanedUp) return;
-  await teardown();
-}
-
-async function teardown(): Promise<void> {
-  if (_cleanedUp) return;
-  _cleanedUp = true;
-
-  const ctx = _ctx;
-  if (!ctx) return;
-
-  try {
-    await ctx.p.record.write();
-    if (existsSync(PROOF_PATH)) {
-      const size = readFileSync(PROOF_PATH).length;
-      console.log(`Proof records written to ${PROOF_PATH} (${size} bytes)`);
-    }
-  } catch (e) {
-    console.error("failed to write proof records:", e);
-  }
-}
-
-process.on("exit", () => {
-  if (_ctx) {
-    _ctx.server.kill();
-    for (const path of [SOCKET, DB_PATH, CONFIG_PATH]) {
-      try { unlinkSync(path); } catch {}
-    }
-  }
-});
-
-async function initProbes(): Promise<ProbesContext> {
+export async function setupTestFile(): Promise<ProbesContext> {
+  const session = _sessionCounter++;
+  const socket = `/tmp/gate-probes-${session}.sock`;
+  const db = `/tmp/gate-probes-${session}.db`;
+  const configPath = `/tmp/gate-probes-config-${session}.toml`;
+  const httpPort = 19876 + session;
   const config = `
 [gate]
-socket_path = "${SOCKET}"
-db_path = "${DB_PATH}"
+socket_path = "${socket}"
+db_path = "${db}"
 audit_ttl_secs = 7776000
 rest_port = 0
 rest_host = "127.0.0.1"
@@ -89,14 +46,14 @@ bot_token = ""
 chat_id = 0
 
 [mcp]
-fifo_path = "/tmp/gate-mcp-probes.fifo"
+fifo_path = "/tmp/gate-mcp-probes-${session}.fifo"
 
 [web]
 dist_path = "/tmp/gate-web-probes"
 
 [pipeline.llm]
 model_name = "deepseek-chat"
-api_url = "http://127.0.0.1:19876/v1/chat/completions"
+api_url = "http://127.0.0.1:${httpPort}/v1/chat/completions"
 api_key = "test"
 max_tokens = 256
 temperature = 0.1
@@ -121,11 +78,11 @@ command_check = ["catch_list", "allow_list", "llm", "human"]
 mcp_request = ["allow_list", "human"]
 interactive_bootstrap = []
 `;
-  writeFileSync(CONFIG_PATH, config);
+  writeFileSync(configPath, config);
 
   const server = spawn({
     cmd: ["target/debug/gate-server"],
-    env: { GATE_CONFIG: CONFIG_PATH },
+    env: { GATE_CONFIG: configPath },
     stdout: "ignore",
     stderr: "ignore",
     cwd: join(import.meta.dir, "..", ".."),
@@ -134,10 +91,10 @@ interactive_bootstrap = []
   await new Promise((r) => setTimeout(r, 800));
 
   const p = await probes({
-    unix: { client: { path: SOCKET, timeout_ms: 30000 } },
-    sql: { path: DB_PATH },
-    http: { server: { port: 19876 } },
-    record: { output_path: PROOF_PATH },
+    unix: { client: { path: socket, timeout_ms: 30000 } },
+    sql: { path: db },
+    http: { server: { port: httpPort } },
+    record: { output_path: PROOF_PATH, title: "ShellGate E2E Proof Records" },
   });
 
   const now = new Date().toISOString();
@@ -200,7 +157,30 @@ interactive_bootstrap = []
     ],
   });
 
-  return { p, configPath: CONFIG_PATH, server };
+  return {
+    p,
+    teardown: async () => {
+      try {
+        await p.record.write();
+        if (existsSync(PROOF_PATH)) {
+          const size = readFileSync(PROOF_PATH).length;
+          console.log(`Proof records written to ${PROOF_PATH} (${size} bytes)`);
+        }
+      } catch (e) {
+        console.error("failed to write proof records:", e);
+      }
+      await p.close();
+      server.kill();
+      try {
+        await server.exited;
+      } catch {}
+      for (const path of [socket, db, configPath]) {
+        try {
+          unlinkSync(path);
+        } catch {}
+      }
+    },
+  };
 }
 
 export function checkCommand(req: {

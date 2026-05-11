@@ -61,4 +61,4 @@ jobs:
         run: |
           cd tests/probes
           bun install @codery/probes
-          bun test
+          bun test catch-list.test.ts allow-list.test.ts llm-deliberation.test.ts

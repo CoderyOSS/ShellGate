@@ -1,15 +1,15 @@
 import { describe, it, expect, beforeAll, afterAll } from "bun:test";
-import { getProbesContext, releaseProbesContext, checkCommand, parseGateResponseRaw, recordTest } from "./probes-context";
+import { setupTestFile, checkCommand, parseGateResponseRaw, recordTest } from "./probes-context";
 import type { ProbesContext } from "./probes-context";
 
 let ctx: ProbesContext;
 
 beforeAll(async () => {
-  ctx = await getProbesContext();
+  ctx = await setupTestFile();
 });
 
 afterAll(async () => {
-  await releaseProbesContext();
+  await ctx.teardown();
 });
 
 describe("llm deliberation", () => {
