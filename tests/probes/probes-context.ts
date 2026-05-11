@@ -10,6 +10,8 @@ const PROOF_PATH = join(import.meta.dir, "proof-records.md");
 
 let _ctx: ProbesContext | null = null;
 let _initPromise: Promise<ProbesContext> | null = null;
+let _releaseCount = 0;
+const EXPECTED_RELEASES = 3;
 let _cleanedUp = false;
 
 export interface ProbesContext {
@@ -31,6 +33,40 @@ export async function getProbesContext(): Promise<ProbesContext> {
   _ctx = await _initPromise;
   return _ctx;
 }
+
+export async function releaseProbesContext(): Promise<void> {
+  _releaseCount++;
+  if (_releaseCount < EXPECTED_RELEASES) return;
+  if (_cleanedUp) return;
+  await teardown();
+}
+
+async function teardown(): Promise<void> {
+  if (_cleanedUp) return;
+  _cleanedUp = true;
+
+  const ctx = _ctx;
+  if (!ctx) return;
+
+  try {
+    await ctx.p.record.write();
+    if (existsSync(PROOF_PATH)) {
+      const size = readFileSync(PROOF_PATH).length;
+      console.log(`Proof records written to ${PROOF_PATH} (${size} bytes)`);
+    }
+  } catch (e) {
+    console.error("failed to write proof records:", e);
+  }
+}
+
+process.on("exit", () => {
+  if (_ctx) {
+    _ctx.server.kill();
+    for (const path of [SOCKET, DB_PATH, CONFIG_PATH]) {
+      try { unlinkSync(path); } catch {}
+    }
+  }
+});
 
 async function initProbes(): Promise<ProbesContext> {
   const config = `
@@ -90,8 +126,8 @@ interactive_bootstrap = []
   const server = spawn({
     cmd: ["target/debug/gate-server"],
     env: { GATE_CONFIG: CONFIG_PATH },
-    stdout: "pipe",
-    stderr: "pipe",
+    stdout: "ignore",
+    stderr: "ignore",
     cwd: join(import.meta.dir, "..", ".."),
   });
 
@@ -164,28 +200,7 @@ interactive_bootstrap = []
     ],
   });
 
-  const ctx: ProbesContext = { p, configPath: CONFIG_PATH, server };
-
-  process.on("beforeExit", async () => {
-    if (_cleanedUp) return;
-    _cleanedUp = true;
-    try {
-      await ctx.p.record.write();
-      await ctx.p.close();
-    } catch {}
-    ctx.server.kill();
-    for (const path of [SOCKET, DB_PATH, CONFIG_PATH]) {
-      try {
-        unlinkSync(path);
-      } catch {}
-    }
-    if (existsSync(PROOF_PATH)) {
-      console.log(`Proof records written to ${PROOF_PATH}`);
-      console.log(`Size: ${readFileSync(PROOF_PATH).length} bytes`);
-    }
-  });
-
-  return ctx;
+  return { p, configPath: CONFIG_PATH, server };
 }
 
 export function checkCommand(req: {
