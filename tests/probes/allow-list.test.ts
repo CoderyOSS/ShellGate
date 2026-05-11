@@ -5,11 +5,11 @@ import { gateAdapter } from "./gate-adapter";
 const gate = p.unix.use(gateAdapter);
 
 beforeAll(async () => {
-  await p.sql.fixture("./shared.fixture.yaml");
+  await p.sql.put({ file: "./shared.fixture.yaml" });
 });
 
 afterAll(async () => {
-  await p.sql.unfixture();
+  await p.sql.clear();
 });
 
 describe("allow_list + safe commands", () => {
