@@ -10,6 +10,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await p.sql.clear();
+  p.proof.save();
 });
 
 describe("allow_list + safe commands", () => {
