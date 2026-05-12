@@ -1,5 +1,6 @@
 import { p } from "@codery/probes";
-import { describe, it, expect, beforeAll, afterAll } from "bun:test";
+import { describe, expect, beforeAll, afterAll } from "bun:test";
+import { it } from "./proof-helper";
 import { gateAdapter } from "./gate-adapter";
 
 const gate = p.unix.use(gateAdapter);
